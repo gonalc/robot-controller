@@ -172,25 +172,27 @@ fun DirectionalControlsCard(
             )
 
             Column(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 FilledTonalButton(
                     onClick = { onSendCommand(RobotCommand.Forward) },
                     enabled = enabled,
-                    modifier = Modifier.size(80.dp, 60.dp)
+                    modifier = Modifier.fillMaxWidth().height(60.dp)
                 ) {
                     Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Forward")
                 }
 
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilledTonalButton(
                         onClick = { onSendCommand(RobotCommand.Left) },
                         enabled = enabled,
-                        modifier = Modifier.size(80.dp, 60.dp)
+                        modifier = Modifier.weight(1f).height(60.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Left")
                     }
@@ -198,7 +200,7 @@ fun DirectionalControlsCard(
                     FilledTonalButton(
                         onClick = { onSendCommand(RobotCommand.Stop) },
                         enabled = enabled,
-                        modifier = Modifier.size(80.dp, 60.dp),
+                        modifier = Modifier.weight(1f).height(60.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer
                         )
@@ -209,7 +211,7 @@ fun DirectionalControlsCard(
                     FilledTonalButton(
                         onClick = { onSendCommand(RobotCommand.Right) },
                         enabled = enabled,
-                        modifier = Modifier.size(80.dp, 60.dp)
+                        modifier = Modifier.weight(1f).height(60.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Right")
                     }
@@ -218,7 +220,7 @@ fun DirectionalControlsCard(
                 FilledTonalButton(
                     onClick = { onSendCommand(RobotCommand.Backward) },
                     enabled = enabled,
-                    modifier = Modifier.size(80.dp, 60.dp)
+                    modifier = Modifier.fillMaxWidth().height(60.dp)
                 ) {
                     Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Backward")
                 }
