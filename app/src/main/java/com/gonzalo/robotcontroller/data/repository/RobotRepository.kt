@@ -1,0 +1,95 @@
+package com.gonzalo.robotcontroller.data.repository
+
+import com.gonzalo.robotcontroller.data.websocket.WebSocketClient
+import com.gonzalo.robotcontroller.data.websocket.WebSocketEvent
+import com.gonzalo.robotcontroller.domain.model.ConnectionState
+import com.gonzalo.robotcontroller.domain.model.RobotCommand
+import com.gonzalo.robotcontroller.domain.model.RobotSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+class RobotRepository(
+    private val webSocketClient: WebSocketClient,
+    private val coroutineScope: CoroutineScope
+) {
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
+    private var connectionJob: Job? = null
+    private var reconnectAttempts = 0
+    private var settings = RobotSettings()
+
+    fun connect(url: String = settings.serverUrl) {
+        if (_connectionState.value is ConnectionState.Connected ||
+            _connectionState.value is ConnectionState.Connecting) {
+            return
+        }
+
+        _connectionState.value = ConnectionState.Connecting
+        reconnectAttempts = 0
+
+        connectionJob?.cancel()
+        connectionJob = coroutineScope.launch {
+            webSocketClient.connect(url).collect { event ->
+                handleWebSocketEvent(event, url)
+            }
+        }
+    }
+
+    fun disconnect() {
+        reconnectAttempts = settings.maxReconnectAttempts
+        connectionJob?.cancel()
+        webSocketClient.disconnect()
+        _connectionState.value = ConnectionState.Disconnected
+    }
+
+    fun sendCommand(command: RobotCommand) {
+        if (_connectionState.value is ConnectionState.Connected) {
+            webSocketClient.send(command.toJson())
+        }
+    }
+
+    private suspend fun handleWebSocketEvent(event: WebSocketEvent, url: String) {
+        when (event) {
+            is WebSocketEvent.Connected -> {
+                _connectionState.value = ConnectionState.Connected
+                reconnectAttempts = 0
+            }
+            is WebSocketEvent.Disconnected -> {
+                _connectionState.value = ConnectionState.Disconnected
+                attemptReconnect(url)
+            }
+            is WebSocketEvent.Error -> {
+                _connectionState.value = ConnectionState.Error(event.message)
+                attemptReconnect(url)
+            }
+            is WebSocketEvent.MessageReceived -> {
+            }
+        }
+    }
+
+    private suspend fun attemptReconnect(url: String) {
+        if (!settings.reconnectEnabled || reconnectAttempts >= settings.maxReconnectAttempts) {
+            return
+        }
+
+        reconnectAttempts++
+        val delayMs = minOf(1000L * (1 shl (reconnectAttempts - 1)), 30000L)
+
+        _connectionState.value = ConnectionState.Error("Reconnecting in ${delayMs / 1000}s (attempt $reconnectAttempts/${settings.maxReconnectAttempts})")
+        delay(delayMs)
+
+        if (_connectionState.value !is ConnectionState.Connected) {
+            connect(url)
+        }
+    }
+
+    fun updateSettings(newSettings: RobotSettings) {
+        settings = newSettings
+    }
+}
