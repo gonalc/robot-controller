@@ -28,10 +28,10 @@ sealed class RobotCommand {
 
     fun toJson(): String {
         return when (this) {
-            is Forward -> """{"command":"right"}"""
-            is Backward -> """{"command":"left"}"""
-            is Left -> """{"command":"forward"}"""
-            is Right -> """{"command":"backward"}"""
+            is Forward -> """{"command":"forward"}"""
+            is Backward -> """{"command":"backward"}"""
+            is Left -> """{"command":"left"}"""
+            is Right -> """{"command":"right"}"""
             is Stop -> """{"command":"stop"}"""
             is Speed -> """{"command":"speed","value":$value}"""
             is Joystick -> """{"command":"joystick","x":${String.format(Locale.ROOT, "%.2f", x)},"y":${String.format(Locale.ROOT, "%.2f", y)}}"""
