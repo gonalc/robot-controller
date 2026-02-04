@@ -1,6 +1,7 @@
 package com.gonzalo.robotcontroller.domain.model
 
 import kotlinx.serialization.Serializable
+import java.util.Locale
 
 @Serializable
 sealed class RobotCommand {
@@ -22,6 +23,9 @@ sealed class RobotCommand {
     @Serializable
     data class Speed(val value: Int) : RobotCommand()
 
+    @Serializable
+    data class Joystick(val x: Float, val y: Float) : RobotCommand()
+
     fun toJson(): String {
         return when (this) {
             is Forward -> """{"command":"right"}"""
@@ -30,6 +34,7 @@ sealed class RobotCommand {
             is Right -> """{"command":"backward"}"""
             is Stop -> """{"command":"stop"}"""
             is Speed -> """{"command":"speed","value":$value}"""
+            is Joystick -> """{"command":"joystick","x":${String.format(Locale.ROOT, "%.2f", x)},"y":${String.format(Locale.ROOT, "%.2f", y)}}"""
         }
     }
 }
