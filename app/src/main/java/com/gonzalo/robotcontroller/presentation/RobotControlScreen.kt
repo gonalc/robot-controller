@@ -355,11 +355,6 @@ fun JoystickControlCard(
             Box(
                 modifier = Modifier
                     .size(joystickSize)
-                    .border(
-                        width = 2.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = CircleShape
-                    )
                     .pointerInput(enabled) {
                         if (!enabled) return@pointerInput
                         val center = Offset(size.width / 2f, size.height / 2f)
@@ -414,6 +409,15 @@ fun JoystickControlCard(
                     },
                 contentAlignment = Alignment.Center
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = CircleShape
+                        )
+                )
                 Surface(
                     modifier = Modifier
                         .size(knobRadius * 2)
