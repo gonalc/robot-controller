@@ -36,13 +36,16 @@ enum class ControlMode {
 @Composable
 fun RobotControlScreen(
     connectionState: ConnectionState,
+    testMode: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSendCommand: (RobotCommand) -> Unit,
+    onToggleTestMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var currentSpeed by remember { mutableIntStateOf(50) }
     var controlMode by remember { mutableStateOf(ControlMode.DPad) }
+    val controlsEnabled = connectionState is ConnectionState.Connected || testMode
 
     Scaffold(
         topBar = {
@@ -65,8 +68,10 @@ fun RobotControlScreen(
         ) {
             ConnectionStatusCard(
                 connectionState = connectionState,
+                testMode = testMode,
                 onConnect = onConnect,
-                onDisconnect = onDisconnect
+                onDisconnect = onDisconnect,
+                onToggleTestMode = onToggleTestMode
             )
 
             SpeedControlCard(
@@ -75,7 +80,7 @@ fun RobotControlScreen(
                     currentSpeed = newSpeed
                     onSendCommand(RobotCommand.Speed(newSpeed))
                 },
-                enabled = connectionState is ConnectionState.Connected
+                enabled = controlsEnabled
             )
 
             ControlModeSelector(
@@ -86,11 +91,11 @@ fun RobotControlScreen(
             when (controlMode) {
                 ControlMode.DPad -> DirectionalControlsCard(
                     onSendCommand = onSendCommand,
-                    enabled = connectionState is ConnectionState.Connected
+                    enabled = controlsEnabled
                 )
                 ControlMode.Joystick -> JoystickControlCard(
                     onSendCommand = onSendCommand,
-                    enabled = connectionState is ConnectionState.Connected
+                    enabled = controlsEnabled
                 )
             }
         }
@@ -100,8 +105,10 @@ fun RobotControlScreen(
 @Composable
 fun ConnectionStatusCard(
     connectionState: ConnectionState,
+    testMode: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    onToggleTestMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -144,6 +151,31 @@ fun ConnectionStatusCard(
             ) {
                 Text(
                     if (connectionState is ConnectionState.Connected) "Disconnect" else "Connect"
+                )
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Test Mode",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Switch(
+                    checked = testMode,
+                    onCheckedChange = { onToggleTestMode() }
+                )
+            }
+
+            if (testMode) {
+                Text(
+                    text = "Controls enabled — no commands sent",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

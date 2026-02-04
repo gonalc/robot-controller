@@ -8,8 +8,11 @@ import com.gonzalo.robotcontroller.data.repository.RobotRepository
 import com.gonzalo.robotcontroller.domain.model.ConnectionState
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
 import com.gonzalo.robotcontroller.domain.model.RobotSettings
+import kotlin.math.abs
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -19,6 +22,13 @@ class RobotControlViewModel(
 ) : ViewModel() {
 
     val connectionState: StateFlow<ConnectionState> = repository.connectionState
+
+    private val _testMode = MutableStateFlow(false)
+    val testMode: StateFlow<Boolean> = _testMode.asStateFlow()
+
+    fun toggleTestMode() {
+        _testMode.value = !_testMode.value
+    }
 
     val settings: StateFlow<RobotSettings> = settingsDataStore.settings.stateIn(
         scope = viewModelScope,
@@ -43,7 +53,32 @@ class RobotControlViewModel(
     }
 
     fun sendCommand(command: RobotCommand) {
+        if (_testMode.value) return
         repository.sendCommand(command)
+    }
+
+    // --- Gamepad analog stick support ---
+
+    private var lastStickSendTime = 0L
+    private var lastStickX = 0f
+    private var lastStickY = 0f
+
+    fun handleGamepadStick(rawX: Float, rawY: Float) {
+        val deadZone = 0.1f
+        val x = if (abs(rawX) < deadZone) 0f else rawX.coerceIn(-1f, 1f)
+        val y = if (abs(rawY) < deadZone) 0f else (-rawY).coerceIn(-1f, 1f)
+
+        val isCenter = x == 0f && y == 0f
+        val wasCenter = lastStickX == 0f && lastStickY == 0f
+        if (isCenter && wasCenter) return
+
+        val now = System.currentTimeMillis()
+        if (isCenter || now - lastStickSendTime >= 50L) {
+            sendCommand(RobotCommand.Joystick(x, y))
+            lastStickSendTime = now
+            lastStickX = x
+            lastStickY = y
+        }
     }
 
     fun updateServerUrl(url: String) {
