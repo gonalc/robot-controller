@@ -39,6 +39,7 @@ enum class ControlMode {
 fun RobotControlScreen(
     connectionState: ConnectionState,
     testMode: Boolean,
+    gamepadJoystickPosition: Pair<Float, Float>,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSendCommand: (RobotCommand) -> Unit,
@@ -116,7 +117,8 @@ fun RobotControlScreen(
                     )
                     ControlMode.Joystick -> JoystickControlCard(
                         onSendCommand = onSendCommand,
-                        enabled = controlsEnabled
+                        enabled = controlsEnabled,
+                        gamepadPosition = gamepadJoystickPosition
                     )
                 }
             }
@@ -387,6 +389,7 @@ fun ControlModeSelector(
 fun JoystickControlCard(
     onSendCommand: (RobotCommand) -> Unit,
     enabled: Boolean,
+    gamepadPosition: Pair<Float, Float> = Pair(0f, 0f),
     modifier: Modifier = Modifier
 ) {
     val joystickSize = 200.dp
@@ -406,6 +409,19 @@ fun JoystickControlCard(
     var normalizedX by remember { mutableFloatStateOf(0f) }
     var normalizedY by remember { mutableFloatStateOf(0f) }
 
+    // Update knob position from gamepad when not dragging on screen
+    LaunchedEffect(gamepadPosition, isDragging) {
+        if (!isDragging) {
+            val (gpX, gpY) = gamepadPosition
+            normalizedX = gpX
+            normalizedY = gpY
+            // Convert normalized (-1 to 1) to pixel offset
+            // Note: Y is inverted (positive Y = up in normalized, but down in screen coords)
+            knobOffsetX = gpX * maxOffset
+            knobOffsetY = -gpY * maxOffset
+        }
+    }
+
     // Reset when disabled (e.g. connection drops mid-drag)
     LaunchedEffect(enabled) {
         if (!enabled) {
@@ -418,12 +434,12 @@ fun JoystickControlCard(
         }
     }
 
-    // Throttled command sending at ~20 Hz
-    LaunchedEffect(enabled) {
-        if (!enabled) return@LaunchedEffect
+    // Throttled command sending at ~20 Hz (only for touch input)
+    LaunchedEffect(enabled, isDragging) {
+        if (!enabled || !isDragging) return@LaunchedEffect
         var lastSentX = 0f
         var lastSentY = 0f
-        while (true) {
+        while (isDragging) {
             delay(50L)
             val nx = normalizedX
             val ny = normalizedY
@@ -434,6 +450,9 @@ fun JoystickControlCard(
             }
         }
     }
+
+    // Determine if gamepad is actively being used
+    val isGamepadActive = !isDragging && (gamepadPosition.first != 0f || gamepadPosition.second != 0f)
 
     Card(modifier = modifier.fillMaxWidth()) {
         Column(
@@ -519,9 +538,12 @@ fun JoystickControlCard(
                         .size(knobRadius * 2)
                         .offset { IntOffset(knobOffsetX.roundToInt(), knobOffsetY.roundToInt()) },
                     shape = CircleShape,
-                    color = if (isDragging) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.primaryContainer,
-                    shadowElevation = if (isDragging) 8.dp else 4.dp
+                    color = when {
+                        isDragging -> MaterialTheme.colorScheme.primary
+                        isGamepadActive -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primaryContainer
+                    },
+                    shadowElevation = if (isDragging || isGamepadActive) 8.dp else 4.dp
                 ) {}
             }
 

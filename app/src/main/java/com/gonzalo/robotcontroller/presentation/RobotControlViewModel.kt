@@ -26,6 +26,10 @@ class RobotControlViewModel(
     private val _testMode = MutableStateFlow(false)
     val testMode: StateFlow<Boolean> = _testMode.asStateFlow()
 
+    // Gamepad joystick position for UI display
+    private val _gamepadJoystickPosition = MutableStateFlow(Pair(0f, 0f))
+    val gamepadJoystickPosition: StateFlow<Pair<Float, Float>> = _gamepadJoystickPosition.asStateFlow()
+
     fun toggleTestMode() {
         _testMode.value = !_testMode.value
     }
@@ -67,6 +71,9 @@ class RobotControlViewModel(
         val deadZone = 0.1f
         val x = if (abs(rawX) < deadZone) 0f else rawX.coerceIn(-1f, 1f)
         val y = if (abs(rawY) < deadZone) 0f else (-rawY).coerceIn(-1f, 1f)
+
+        // Always update UI position
+        _gamepadJoystickPosition.value = Pair(x, y)
 
         val isCenter = x == 0f && y == 0f
         val wasCenter = lastStickX == 0f && lastStickY == 0f

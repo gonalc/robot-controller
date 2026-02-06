@@ -1,6 +1,7 @@
 package com.gonzalo.robotcontroller
 
 import android.os.Bundle
+import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -41,10 +42,12 @@ class MainActivity : ComponentActivity() {
             RobotControllerTheme {
                 val connectionState by viewModel.connectionState.collectAsState()
                 val testMode by viewModel.testMode.collectAsState()
+                val gamepadJoystickPosition by viewModel.gamepadJoystickPosition.collectAsState()
 
                 RobotControlScreen(
                     connectionState = connectionState,
                     testMode = testMode,
+                    gamepadJoystickPosition = gamepadJoystickPosition,
                     onConnect = { viewModel.connect() },
                     onDisconnect = { viewModel.disconnect() },
                     onSendCommand = { command -> viewModel.sendCommand(command) },
@@ -85,6 +88,7 @@ class MainActivity : ComponentActivity() {
     // --- Bluetooth gamepad: left analog stick + hat switch ---
 
     override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
+        Log.d("GamepadDebug", "onGenericMotionEvent: $event")
         if (event == null || event.action != MotionEvent.ACTION_MOVE) {
             return super.onGenericMotionEvent(event)
         }
