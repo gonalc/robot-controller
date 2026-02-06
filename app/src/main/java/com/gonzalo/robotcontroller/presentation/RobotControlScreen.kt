@@ -16,10 +16,12 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import android.content.res.Configuration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -89,35 +91,87 @@ fun RobotControlScreen(
                 )
             }
         ) { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                SpeedControlCard(
-                    speed = speed,
-                    onSpeedChange = onSpeedChange,
-                    enabled = controlsEnabled
-                )
+            val configuration = LocalConfiguration.current
+            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-                ControlModeSelector(
-                    selectedMode = controlMode,
-                    onModeSelected = { controlMode = it }
-                )
+            if (isLandscape) {
+                // Landscape layout: controls on left, speed on right
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left side: Movement controls
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        when (controlMode) {
+                            ControlMode.DPad -> DirectionalControlsLandscape(
+                                onSendCommand = onSendCommand,
+                                enabled = controlsEnabled
+                            )
+                            ControlMode.Joystick -> JoystickControlLandscape(
+                                onSendCommand = onSendCommand,
+                                enabled = controlsEnabled,
+                                gamepadPosition = gamepadJoystickPosition
+                            )
+                        }
+                    }
 
-                when (controlMode) {
-                    ControlMode.DPad -> DirectionalControlsCard(
-                        onSendCommand = onSendCommand,
+                    // Right side: Speed and mode selector
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        SpeedControlCard(
+                            speed = speed,
+                            onSpeedChange = onSpeedChange,
+                            enabled = controlsEnabled
+                        )
+
+                        ControlModeSelector(
+                            selectedMode = controlMode,
+                            onModeSelected = { controlMode = it }
+                        )
+                    }
+                }
+            } else {
+                // Portrait layout: stacked vertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    SpeedControlCard(
+                        speed = speed,
+                        onSpeedChange = onSpeedChange,
                         enabled = controlsEnabled
                     )
-                    ControlMode.Joystick -> JoystickControlCard(
-                        onSendCommand = onSendCommand,
-                        enabled = controlsEnabled,
-                        gamepadPosition = gamepadJoystickPosition
+
+                    ControlModeSelector(
+                        selectedMode = controlMode,
+                        onModeSelected = { controlMode = it }
                     )
+
+                    when (controlMode) {
+                        ControlMode.DPad -> DirectionalControlsCard(
+                            onSendCommand = onSendCommand,
+                            enabled = controlsEnabled
+                        )
+                        ControlMode.Joystick -> JoystickControlCard(
+                            onSendCommand = onSendCommand,
+                            enabled = controlsEnabled,
+                            gamepadPosition = gamepadJoystickPosition
+                        )
+                    }
                 }
             }
         }
@@ -150,7 +204,6 @@ private fun DrawerContent(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onToggleTestMode: () -> Unit,
-    onCloseDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -387,8 +440,8 @@ fun ControlModeSelector(
 fun JoystickControlCard(
     onSendCommand: (RobotCommand) -> Unit,
     enabled: Boolean,
+    modifier: Modifier = Modifier,
     gamepadPosition: Pair<Float, Float> = Pair(0f, 0f),
-    modifier: Modifier = Modifier
 ) {
     val joystickSize = 200.dp
     val knobRadius = 30.dp
@@ -558,4 +611,225 @@ private fun clampToCircle(offset: Offset, maxRadius: Float): Offset {
     val distance = offset.getDistance()
     return if (distance <= maxRadius) offset
     else offset * (maxRadius / distance)
+}
+
+@Composable
+fun DirectionalControlsLandscape(
+    onSendCommand: (RobotCommand) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FilledTonalButton(
+            onClick = { onSendCommand(RobotCommand.Forward) },
+            enabled = enabled,
+            modifier = Modifier.size(80.dp),
+            shape = CircleShape
+        ) {
+            Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Forward")
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalButton(
+                onClick = { onSendCommand(RobotCommand.Left) },
+                enabled = enabled,
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Left")
+            }
+
+            FilledTonalButton(
+                onClick = { onSendCommand(RobotCommand.Stop) },
+                enabled = enabled,
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Text("STOP", style = MaterialTheme.typography.labelSmall)
+            }
+
+            FilledTonalButton(
+                onClick = { onSendCommand(RobotCommand.Right) },
+                enabled = enabled,
+                modifier = Modifier.size(80.dp),
+                shape = CircleShape
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Right")
+            }
+        }
+
+        FilledTonalButton(
+            onClick = { onSendCommand(RobotCommand.Backward) },
+            enabled = enabled,
+            modifier = Modifier.size(80.dp),
+            shape = CircleShape
+        ) {
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Backward")
+        }
+    }
+}
+
+@Composable
+fun JoystickControlLandscape(
+    onSendCommand: (RobotCommand) -> Unit,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    gamepadPosition: Pair<Float, Float> = Pair(0f, 0f),
+) {
+    val joystickSize = 220.dp
+    val knobRadius = 35.dp
+
+    val density = LocalDensity.current
+    val joystickRadiusPx = with(density) { (joystickSize / 2).toPx() }
+    val knobRadiusPx = with(density) { knobRadius.toPx() }
+    val maxOffset = joystickRadiusPx - knobRadiusPx
+
+    var knobOffsetX by remember { mutableFloatStateOf(0f) }
+    var knobOffsetY by remember { mutableFloatStateOf(0f) }
+    val coroutineScope = rememberCoroutineScope()
+    var isDragging by remember { mutableStateOf(false) }
+    var springJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+
+    var normalizedX by remember { mutableFloatStateOf(0f) }
+    var normalizedY by remember { mutableFloatStateOf(0f) }
+
+    LaunchedEffect(gamepadPosition, isDragging) {
+        if (!isDragging) {
+            val (gpX, gpY) = gamepadPosition
+            normalizedX = gpX
+            normalizedY = gpY
+            knobOffsetX = gpX * maxOffset
+            knobOffsetY = -gpY * maxOffset
+        }
+    }
+
+    LaunchedEffect(enabled) {
+        if (!enabled) {
+            springJob?.cancel()
+            isDragging = false
+            normalizedX = 0f
+            normalizedY = 0f
+            knobOffsetX = 0f
+            knobOffsetY = 0f
+        }
+    }
+
+    LaunchedEffect(enabled, isDragging) {
+        if (!enabled || !isDragging) return@LaunchedEffect
+        var lastSentX = 0f
+        var lastSentY = 0f
+        while (isDragging) {
+            delay(50L)
+            val nx = normalizedX
+            val ny = normalizedY
+            if (nx != lastSentX || ny != lastSentY) {
+                onSendCommand(RobotCommand.Joystick(nx, ny))
+                lastSentX = nx
+                lastSentY = ny
+            }
+        }
+    }
+
+    val isGamepadActive = !isDragging && (gamepadPosition.first != 0f || gamepadPosition.second != 0f)
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(joystickSize)
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    val center = Offset(size.width / 2f, size.height / 2f)
+
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        springJob?.cancel()
+                        isDragging = true
+
+                        val initial = clampToCircle(down.position - center, maxOffset)
+                        knobOffsetX = initial.x
+                        knobOffsetY = initial.y
+                        normalizedX = initial.x / maxOffset
+                        normalizedY = -(initial.y / maxOffset)
+
+                        val pointerId = down.id
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == pointerId }
+                            if (change == null || !change.pressed) break
+                            change.consume()
+
+                            val clamped = clampToCircle(change.position - center, maxOffset)
+                            knobOffsetX = clamped.x
+                            knobOffsetY = clamped.y
+                            normalizedX = clamped.x / maxOffset
+                            normalizedY = -(clamped.y / maxOffset)
+                        }
+
+                        isDragging = false
+                        normalizedX = 0f
+                        normalizedY = 0f
+                        onSendCommand(RobotCommand.Joystick(0f, 0f))
+
+                        val startX = knobOffsetX
+                        val startY = knobOffsetY
+                        springJob = coroutineScope.launch {
+                            launch {
+                                animate(startX, 0f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f)) { value, _ ->
+                                    knobOffsetX = value
+                                }
+                            }
+                            launch {
+                                animate(startY, 0f, animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f)) { value, _ ->
+                                    knobOffsetY = value
+                                }
+                            }
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(
+                        width = 3.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape
+                    )
+            )
+            Surface(
+                modifier = Modifier
+                    .size(knobRadius * 2)
+                    .offset { IntOffset(knobOffsetX.roundToInt(), knobOffsetY.roundToInt()) },
+                shape = CircleShape,
+                color = when {
+                    isDragging -> MaterialTheme.colorScheme.primary
+                    isGamepadActive -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.primaryContainer
+                },
+                shadowElevation = if (isDragging || isGamepadActive) 8.dp else 4.dp
+            ) {}
+        }
+
+        Text(
+            text = "x: ${"%.2f".format(normalizedX)}, y: ${"%.2f".format(normalizedY)}",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
