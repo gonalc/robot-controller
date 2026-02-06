@@ -5,6 +5,9 @@ import android.util.Log
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,8 +30,11 @@ class MainActivity : ComponentActivity() {
 
     private var lastHatX = 0f
     private var lastHatY = 0f
-    private var lastRtPressed = false
-    private var lastLtPressed = false
+
+    // Speed control with triggers
+    private var rtSpeedJob: Job? = null
+    private var ltSpeedJob: Job? = null
+    private val speedAdjustIntervalMs = 150L
 
     private val viewModel: RobotControlViewModel by viewModels {
         val webSocketClient = WebSocketClient()
@@ -149,15 +155,30 @@ class MainActivity : ComponentActivity() {
         val rtPressed = rtValue > 0.5f
         val ltPressed = ltValue > 0.5f
 
-        // Trigger on press (not hold)
-        if (rtPressed && !lastRtPressed) {
-            viewModel.adjustSpeed(5)
+        // Start/stop continuous speed adjustment coroutines
+        if (rtPressed && rtSpeedJob == null) {
+            rtSpeedJob = lifecycleScope.launch {
+                while (true) {
+                    viewModel.adjustSpeed(5)
+                    delay(speedAdjustIntervalMs)
+                }
+            }
+        } else if (!rtPressed && rtSpeedJob != null) {
+            rtSpeedJob?.cancel()
+            rtSpeedJob = null
         }
-        if (ltPressed && !lastLtPressed) {
-            viewModel.adjustSpeed(-5)
+
+        if (ltPressed && ltSpeedJob == null) {
+            ltSpeedJob = lifecycleScope.launch {
+                while (true) {
+                    viewModel.adjustSpeed(-5)
+                    delay(speedAdjustIntervalMs)
+                }
+            }
+        } else if (!ltPressed && ltSpeedJob != null) {
+            ltSpeedJob?.cancel()
+            ltSpeedJob = null
         }
-        lastRtPressed = rtPressed
-        lastLtPressed = ltPressed
 
         return true
     }
