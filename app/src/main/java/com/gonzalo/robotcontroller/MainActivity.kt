@@ -27,6 +27,8 @@ class MainActivity : ComponentActivity() {
 
     private var lastHatX = 0f
     private var lastHatY = 0f
+    private var lastRtPressed = false
+    private var lastLtPressed = false
 
     private val viewModel: RobotControlViewModel by viewModels {
         val webSocketClient = WebSocketClient()
@@ -43,14 +45,17 @@ class MainActivity : ComponentActivity() {
                 val connectionState by viewModel.connectionState.collectAsState()
                 val testMode by viewModel.testMode.collectAsState()
                 val gamepadJoystickPosition by viewModel.gamepadJoystickPosition.collectAsState()
+                val speed by viewModel.speed.collectAsState()
 
                 RobotControlScreen(
                     connectionState = connectionState,
                     testMode = testMode,
                     gamepadJoystickPosition = gamepadJoystickPosition,
+                    speed = speed,
                     onConnect = { viewModel.connect() },
                     onDisconnect = { viewModel.disconnect() },
                     onSendCommand = { command -> viewModel.sendCommand(command) },
+                    onSpeedChange = { viewModel.setSpeed(it) },
                     onToggleTestMode = { viewModel.toggleTestMode() },
                     modifier = Modifier.fillMaxSize()
                 )
@@ -88,8 +93,30 @@ class MainActivity : ComponentActivity() {
     // --- Bluetooth gamepad: left analog stick + hat switch ---
 
     override fun onGenericMotionEvent(event: MotionEvent?): Boolean {
-        Log.d("GamepadDebug", "onGenericMotionEvent: $event")
-        if (event == null || event.action != MotionEvent.ACTION_MOVE) {
+        if (event == null) return super.onGenericMotionEvent(event)
+
+        // Log all axis values to identify buttons/triggers
+        val axes = listOf(
+            "X" to MotionEvent.AXIS_X,
+            "Y" to MotionEvent.AXIS_Y,
+            "Z" to MotionEvent.AXIS_Z,
+            "RZ" to MotionEvent.AXIS_RZ,
+            "LT" to MotionEvent.AXIS_LTRIGGER,
+            "RT" to MotionEvent.AXIS_RTRIGGER,
+            "HAT_X" to MotionEvent.AXIS_HAT_X,
+            "HAT_Y" to MotionEvent.AXIS_HAT_Y,
+            "BRAKE" to MotionEvent.AXIS_BRAKE,
+            "GAS" to MotionEvent.AXIS_GAS
+        )
+        val nonZero = axes.mapNotNull { (name, axis) ->
+            val value = event.getAxisValue(axis)
+            if (kotlin.math.abs(value) > 0.01f) "$name=${"%.2f".format(value)}" else null
+        }
+        if (nonZero.isNotEmpty()) {
+            Log.d("GamepadDebug", "Axes: ${nonZero.joinToString(", ")}")
+        }
+
+        if (event.action != MotionEvent.ACTION_MOVE) {
             return super.onGenericMotionEvent(event)
         }
         val sourceIsJoystick = event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK
@@ -115,6 +142,22 @@ class MainActivity : ComponentActivity() {
             }
             viewModel.sendCommand(command)
         }
+
+        // Triggers for speed control (RT = increase, LT = decrease)
+        val rtValue = event.getAxisValue(MotionEvent.AXIS_RTRIGGER)
+        val ltValue = event.getAxisValue(MotionEvent.AXIS_LTRIGGER)
+        val rtPressed = rtValue > 0.5f
+        val ltPressed = ltValue > 0.5f
+
+        // Trigger on press (not hold)
+        if (rtPressed && !lastRtPressed) {
+            viewModel.adjustSpeed(5)
+        }
+        if (ltPressed && !lastLtPressed) {
+            viewModel.adjustSpeed(-5)
+        }
+        lastRtPressed = rtPressed
+        lastLtPressed = ltPressed
 
         return true
     }

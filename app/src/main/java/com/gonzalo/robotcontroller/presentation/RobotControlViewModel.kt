@@ -30,6 +30,22 @@ class RobotControlViewModel(
     private val _gamepadJoystickPosition = MutableStateFlow(Pair(0f, 0f))
     val gamepadJoystickPosition: StateFlow<Pair<Float, Float>> = _gamepadJoystickPosition.asStateFlow()
 
+    // Speed control
+    private val _speed = MutableStateFlow(50)
+    val speed: StateFlow<Int> = _speed.asStateFlow()
+
+    fun setSpeed(value: Int) {
+        val newSpeed = value.coerceIn(0, 100)
+        if (_speed.value != newSpeed) {
+            _speed.value = newSpeed
+            sendCommand(RobotCommand.Speed(newSpeed))
+        }
+    }
+
+    fun adjustSpeed(delta: Int) {
+        setSpeed(_speed.value + delta)
+    }
+
     fun toggleTestMode() {
         _testMode.value = !_testMode.value
     }

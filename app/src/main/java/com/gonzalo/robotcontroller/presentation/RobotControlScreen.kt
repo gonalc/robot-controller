@@ -40,13 +40,14 @@ fun RobotControlScreen(
     connectionState: ConnectionState,
     testMode: Boolean,
     gamepadJoystickPosition: Pair<Float, Float>,
+    speed: Int,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSendCommand: (RobotCommand) -> Unit,
+    onSpeedChange: (Int) -> Unit,
     onToggleTestMode: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var currentSpeed by remember { mutableIntStateOf(50) }
     var controlMode by remember { mutableStateOf(ControlMode.DPad) }
     val controlsEnabled = connectionState is ConnectionState.Connected || testMode
 
@@ -97,11 +98,8 @@ fun RobotControlScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 SpeedControlCard(
-                    speed = currentSpeed,
-                    onSpeedChange = { newSpeed ->
-                        currentSpeed = newSpeed
-                        onSendCommand(RobotCommand.Speed(newSpeed))
-                    },
+                    speed = speed,
+                    onSpeedChange = onSpeedChange,
                     enabled = controlsEnabled
                 )
 
