@@ -2,6 +2,7 @@ package com.gonzalo.robotcontroller.presentation
 
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -47,137 +49,199 @@ fun RobotControlScreen(
     var controlMode by remember { mutableStateOf(ControlMode.DPad) }
     val controlsEnabled = connectionState is ConnectionState.Connected || testMode
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Robot Controller") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
+                DrawerContent(
+                    connectionState = connectionState,
+                    testMode = testMode,
+                    onConnect = onConnect,
+                    onDisconnect = onDisconnect,
+                    onToggleTestMode = onToggleTestMode,
+                    onCloseDrawer = { scope.launch { drawerState.close() } }
                 )
-            )
+            }
         },
         modifier = modifier
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            ConnectionStatusCard(
-                connectionState = connectionState,
-                testMode = testMode,
-                onConnect = onConnect,
-                onDisconnect = onDisconnect,
-                onToggleTestMode = onToggleTestMode
-            )
-
-            SpeedControlCard(
-                speed = currentSpeed,
-                onSpeedChange = { newSpeed ->
-                    currentSpeed = newSpeed
-                    onSendCommand(RobotCommand.Speed(newSpeed))
-                },
-                enabled = controlsEnabled
-            )
-
-            ControlModeSelector(
-                selectedMode = controlMode,
-                onModeSelected = { controlMode = it }
-            )
-
-            when (controlMode) {
-                ControlMode.DPad -> DirectionalControlsCard(
-                    onSendCommand = onSendCommand,
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Robot Controller") },
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = {
+                        ConnectionStatusDot(connectionState = connectionState)
+                        Spacer(modifier = Modifier.width(16.dp))
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                SpeedControlCard(
+                    speed = currentSpeed,
+                    onSpeedChange = { newSpeed ->
+                        currentSpeed = newSpeed
+                        onSendCommand(RobotCommand.Speed(newSpeed))
+                    },
                     enabled = controlsEnabled
                 )
-                ControlMode.Joystick -> JoystickControlCard(
-                    onSendCommand = onSendCommand,
-                    enabled = controlsEnabled
+
+                ControlModeSelector(
+                    selectedMode = controlMode,
+                    onModeSelected = { controlMode = it }
                 )
+
+                when (controlMode) {
+                    ControlMode.DPad -> DirectionalControlsCard(
+                        onSendCommand = onSendCommand,
+                        enabled = controlsEnabled
+                    )
+                    ControlMode.Joystick -> JoystickControlCard(
+                        onSendCommand = onSendCommand,
+                        enabled = controlsEnabled
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun ConnectionStatusCard(
+private fun ConnectionStatusDot(
+    connectionState: ConnectionState,
+    modifier: Modifier = Modifier
+) {
+    val color = when (connectionState) {
+        is ConnectionState.Connected -> MaterialTheme.colorScheme.primary
+        is ConnectionState.Connecting -> MaterialTheme.colorScheme.tertiary
+        is ConnectionState.Disconnected -> MaterialTheme.colorScheme.outline
+        is ConnectionState.Error -> MaterialTheme.colorScheme.error
+    }
+
+    Box(
+        modifier = modifier
+            .size(12.dp)
+            .background(color = color, shape = CircleShape)
+    )
+}
+
+@Composable
+private fun DrawerContent(
     connectionState: ConnectionState,
     testMode: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onToggleTestMode: () -> Unit,
+    onCloseDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(modifier = modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Settings",
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+
+        HorizontalDivider()
+
+        // Connection section
+        Text(
+            text = "Connection",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        val statusText = when (connectionState) {
+            is ConnectionState.Connected -> "Connected"
+            is ConnectionState.Connecting -> "Connecting..."
+            is ConnectionState.Disconnected -> "Disconnected"
+            is ConnectionState.Error -> connectionState.message
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "Connection Status",
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            val statusText = when (connectionState) {
-                is ConnectionState.Connected -> "Connected"
-                is ConnectionState.Connecting -> "Connecting..."
-                is ConnectionState.Disconnected -> "Disconnected"
-                is ConnectionState.Error -> connectionState.message
-            }
-
+            ConnectionStatusDot(connectionState = connectionState)
             Text(
                 text = statusText,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = when (connectionState) {
                     is ConnectionState.Connected -> MaterialTheme.colorScheme.primary
                     is ConnectionState.Error -> MaterialTheme.colorScheme.error
                     else -> MaterialTheme.colorScheme.onSurface
                 }
             )
+        }
 
-            Button(
-                onClick = {
-                    if (connectionState is ConnectionState.Connected) {
-                        onDisconnect()
-                    } else {
-                        onConnect()
-                    }
-                },
-                enabled = connectionState !is ConnectionState.Connecting
-            ) {
-                Text(
-                    if (connectionState is ConnectionState.Connected) "Disconnect" else "Connect"
-                )
-            }
+        Button(
+            onClick = {
+                if (connectionState is ConnectionState.Connected) {
+                    onDisconnect()
+                } else {
+                    onConnect()
+                }
+            },
+            enabled = connectionState !is ConnectionState.Connecting,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (connectionState is ConnectionState.Connected) "Disconnect" else "Connect"
+            )
+        }
 
-            HorizontalDivider()
+        HorizontalDivider()
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        // Test mode section
+        Text(
+            text = "Debug",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
                 Text(
                     text = "Test Mode",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Switch(
-                    checked = testMode,
-                    onCheckedChange = { onToggleTestMode() }
-                )
-            }
-
-            if (testMode) {
                 Text(
-                    text = "Controls enabled — no commands sent",
+                    text = if (testMode) "Controls enabled, no commands sent" else "Commands sent normally",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Switch(
+                checked = testMode,
+                onCheckedChange = { onToggleTestMode() }
+            )
         }
     }
 }
