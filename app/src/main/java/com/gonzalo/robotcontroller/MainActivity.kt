@@ -49,12 +49,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             RobotControllerTheme {
                 val connectionState by viewModel.connectionState.collectAsState()
+                val settings by viewModel.settings.collectAsState()
                 val testMode by viewModel.testMode.collectAsState()
                 val gamepadJoystickPosition by viewModel.gamepadJoystickPosition.collectAsState()
                 val speed by viewModel.speed.collectAsState()
 
                 RobotControlScreen(
                     connectionState = connectionState,
+                    serverUrl = settings.serverUrl,
                     testMode = testMode,
                     gamepadJoystickPosition = gamepadJoystickPosition,
                     speed = speed,

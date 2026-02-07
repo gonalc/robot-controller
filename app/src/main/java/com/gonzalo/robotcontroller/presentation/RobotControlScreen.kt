@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun RobotControlScreen(
     connectionState: ConnectionState,
+    serverUrl: String,
     testMode: Boolean,
     gamepadJoystickPosition: Pair<Float, Float>,
     speed: Int,
@@ -72,6 +73,7 @@ fun RobotControlScreen(
             ModalDrawerSheet(modifier = Modifier.width(280.dp)) {
                 DrawerContent(
                     connectionState = connectionState,
+                    serverUrl = serverUrl,
                     testMode = testMode,
                     onConnect = onConnect,
                     onDisconnect = onDisconnect,

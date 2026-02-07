@@ -20,6 +20,7 @@ import com.gonzalo.robotcontroller.domain.model.ConnectionState
 @Composable
 fun DrawerContent(
     connectionState: ConnectionState,
+    serverUrl: String,
     testMode: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
@@ -42,6 +43,7 @@ fun DrawerContent(
 
         ConnectionSection(
             connectionState = connectionState,
+            serverUrl = serverUrl,
             onConnect = onConnect,
             onDisconnect = onDisconnect
         )
@@ -58,6 +60,7 @@ fun DrawerContent(
 @Composable
 private fun ConnectionSection(
     connectionState: ConnectionState,
+    serverUrl: String,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier
@@ -70,6 +73,12 @@ private fun ConnectionSection(
             text = "Connection",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.primary
+        )
+
+        Text(
+            text = serverUrl,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         val statusText = when (connectionState) {
