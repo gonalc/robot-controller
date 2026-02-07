@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.gonzalo.robotcontroller.data.preferences.SettingsDataStore
 import com.gonzalo.robotcontroller.data.repository.RobotRepository
+import com.gonzalo.robotcontroller.data.sound.SoundManager
 import com.gonzalo.robotcontroller.data.websocket.WebSocketClient
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
 import com.gonzalo.robotcontroller.presentation.RobotControlScreen
@@ -40,7 +41,8 @@ class MainActivity : ComponentActivity() {
         val webSocketClient = WebSocketClient()
         val repository = RobotRepository(webSocketClient)
         val settingsDataStore = SettingsDataStore(applicationContext)
-        RobotControlViewModelFactory(repository, settingsDataStore)
+        val soundManager = SoundManager(applicationContext)
+        RobotControlViewModelFactory(repository, settingsDataStore, soundManager)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
