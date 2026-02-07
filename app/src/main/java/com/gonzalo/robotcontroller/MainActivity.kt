@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: RobotControlViewModel by viewModels {
         val webSocketClient = WebSocketClient()
-        val repository = RobotRepository(webSocketClient, lifecycleScope)
+        val repository = RobotRepository(webSocketClient)
         val settingsDataStore = SettingsDataStore(applicationContext)
         RobotControlViewModelFactory(repository, settingsDataStore)
     }

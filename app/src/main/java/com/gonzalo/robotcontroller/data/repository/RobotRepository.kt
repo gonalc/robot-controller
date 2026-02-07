@@ -6,7 +6,10 @@ import com.gonzalo.robotcontroller.domain.model.ConnectionState
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
 import com.gonzalo.robotcontroller.domain.model.RobotSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,9 +17,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class RobotRepository(
-    private val webSocketClient: WebSocketClient,
-    private val coroutineScope: CoroutineScope
+    private val webSocketClient: WebSocketClient
 ) {
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
@@ -91,5 +94,10 @@ class RobotRepository(
 
     fun updateSettings(newSettings: RobotSettings) {
         settings = newSettings
+    }
+
+    fun close() {
+        disconnect()
+        coroutineScope.cancel()
     }
 }

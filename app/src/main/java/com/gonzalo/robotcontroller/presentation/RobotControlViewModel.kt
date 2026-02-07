@@ -104,15 +104,9 @@ class RobotControlViewModel(
         }
     }
 
-    fun updateServerUrl(url: String) {
-        viewModelScope.launch {
-            settingsDataStore.updateServerUrl(url)
-        }
-    }
-
     override fun onCleared() {
         super.onCleared()
-        repository.disconnect()
+        repository.close()
     }
 }
 
