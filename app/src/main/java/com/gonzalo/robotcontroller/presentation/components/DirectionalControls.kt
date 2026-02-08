@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.FilledTonalButton
@@ -84,11 +85,14 @@ private fun DirectionalButtonsLayout(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        FilledTonalButton(
+        Button(
             onClick = { onSendCommand(RobotCommand.Forward) },
             enabled = enabled,
             modifier = buttonModifier,
-            shape = buttonShape
+            shape = buttonShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.inversePrimary
+            )
         ) {
             Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Forward")
         }
@@ -98,11 +102,14 @@ private fun DirectionalButtonsLayout(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilledTonalButton(
+            Button(
                 onClick = { onSendCommand(RobotCommand.Left) },
                 enabled = enabled,
                 modifier = if (isLandscape) Modifier.size(80.dp) else Modifier.weight(1f).height(60.dp),
-                shape = buttonShape
+                shape = buttonShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.inversePrimary
+                )
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Left")
             }
@@ -122,21 +129,27 @@ private fun DirectionalButtonsLayout(
                 )
             }
 
-            FilledTonalButton(
+            Button(
                 onClick = { onSendCommand(RobotCommand.Right) },
                 enabled = enabled,
                 modifier = if (isLandscape) Modifier.size(80.dp) else Modifier.weight(1f).height(60.dp),
-                shape = buttonShape
+                shape = buttonShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.inversePrimary
+                )
             ) {
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Right")
             }
         }
 
-        FilledTonalButton(
+        Button(
             onClick = { onSendCommand(RobotCommand.Backward) },
             enabled = enabled,
             modifier = buttonModifier,
-            shape = buttonShape
+            shape = buttonShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.inversePrimary
+            )
         ) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Backward")
         }
