@@ -1,6 +1,7 @@
 package com.gonzalo.robotcontroller.presentation
 
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,9 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import com.gonzalo.robotcontroller.domain.model.CaptureResponse
 import com.gonzalo.robotcontroller.domain.model.ConnectionState
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
+import com.gonzalo.robotcontroller.domain.model.StreamingState
+import com.gonzalo.robotcontroller.presentation.components.CaptureImageDialog
 import com.gonzalo.robotcontroller.presentation.components.ConnectionStatusDot
 import com.gonzalo.robotcontroller.presentation.components.ControlMode
 import com.gonzalo.robotcontroller.presentation.components.ControlModeSelector
@@ -45,7 +54,9 @@ import com.gonzalo.robotcontroller.presentation.components.DirectionalControlsLa
 import com.gonzalo.robotcontroller.presentation.components.DrawerContent
 import com.gonzalo.robotcontroller.presentation.components.JoystickControlCard
 import com.gonzalo.robotcontroller.presentation.components.JoystickControlLandscape
+import com.gonzalo.robotcontroller.presentation.components.OverlayControls
 import com.gonzalo.robotcontroller.presentation.components.SpeedControlCard
+import com.gonzalo.robotcontroller.presentation.components.VideoStreamView
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,11 +67,20 @@ fun RobotControlScreen(
     testMode: Boolean,
     gamepadJoystickPosition: Pair<Float, Float>,
     speed: Int,
+    capturedImage: CaptureResponse?,
+    isCapturing: Boolean,
+    streamingState: StreamingState,
+    currentFrame: Bitmap?,
+    isGamepadConnected: Boolean,
+    controlsVisible: Boolean,
+    streamingEnabled: Boolean,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
     onSendCommand: (RobotCommand) -> Unit,
     onSpeedChange: (Int) -> Unit,
     onToggleTestMode: () -> Unit,
+    onCapture: (width: Int, height: Int) -> Unit,
+    onDismissCapturedImage: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var controlMode by remember { mutableStateOf(ControlMode.DPad) }
@@ -69,78 +89,133 @@ fun RobotControlScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .widthIn(max = 320.dp)
-            ) {
-                DrawerContent(
-                    connectionState = connectionState,
-                    serverUrl = serverUrl,
-                    testMode = testMode,
-                    onConnect = onConnect,
-                    onDisconnect = onDisconnect,
-                    onToggleTestMode = onToggleTestMode
-                )
-            }
-        },
-        modifier = modifier
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text("Robot Controller") },
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                        }
-                    },
-                    actions = {
-                        ConnectionStatusDot(connectionState = connectionState)
-                        Spacer(modifier = Modifier.width(16.dp))
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                )
-            }
-        ) { paddingValues ->
-            val configuration = LocalConfiguration.current
-            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
 
-            if (isLandscape) {
-                LandscapeLayout(
-                    controlMode = controlMode,
-                    onModeSelected = { controlMode = it },
-                    controlsEnabled = controlsEnabled,
-                    speed = speed,
-                    onSpeedChange = onSpeedChange,
-                    onSendCommand = onSendCommand,
-                    gamepadJoystickPosition = gamepadJoystickPosition,
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val showFullscreenStreaming = isLandscape && streamingEnabled &&
+        (streamingState is StreamingState.Streaming || streamingState is StreamingState.Connecting || testMode)
+
+    if (showFullscreenStreaming) {
+        StreamingLayout(
+            streamingState = streamingState,
+            currentFrame = currentFrame,
+            controlMode = controlMode,
+            controlsEnabled = controlsEnabled,
+            controlsVisible = controlsVisible || !isGamepadConnected,
+            isGamepadConnected = isGamepadConnected,
+            speed = speed,
+            onSpeedChange = onSpeedChange,
+            onSendCommand = onSendCommand,
+            gamepadJoystickPosition = gamepadJoystickPosition,
+            connectionState = connectionState,
+            modifier = modifier.fillMaxSize()
+        )
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp)
-                )
-            } else {
-                PortraitLayout(
-                    controlMode = controlMode,
-                    onModeSelected = { controlMode = it },
-                    controlsEnabled = controlsEnabled,
-                    speed = speed,
-                    onSpeedChange = onSpeedChange,
-                    onSendCommand = onSendCommand,
-                    gamepadJoystickPosition = gamepadJoystickPosition,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(16.dp)
-                )
+                        .fillMaxWidth(0.85f)
+                        .widthIn(max = 320.dp)
+                ) {
+                    DrawerContent(
+                        connectionState = connectionState,
+                        serverUrl = serverUrl,
+                        testMode = testMode,
+                        onConnect = onConnect,
+                        onDisconnect = onDisconnect,
+                        onToggleTestMode = onToggleTestMode
+                    )
+                }
+            },
+            modifier = modifier
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Robot Controller") },
+                        navigationIcon = {
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Icon(Icons.Default.Menu, contentDescription = "Menu")
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = {
+                                    val widthPx = with(density) { configuration.screenWidthDp.dp.roundToPx() } and 1.inv()
+                                    val heightPx = with(density) { configuration.screenHeightDp.dp.roundToPx() } and 1.inv()
+                                    onCapture(widthPx, heightPx)
+                                },
+                                enabled = controlsEnabled && !isCapturing
+                            ) {
+                                if (isCapturing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.CameraAlt,
+                                        contentDescription = "Capture Photo",
+                                        tint = if (controlsEnabled) {
+                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        }
+                                    )
+                                }
+                            }
+                            ConnectionStatusDot(connectionState = connectionState)
+                            Spacer(modifier = Modifier.width(16.dp))
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+            ) { paddingValues ->
+                if (isLandscape) {
+                    LandscapeLayout(
+                        controlMode = controlMode,
+                        onModeSelected = { controlMode = it },
+                        controlsEnabled = controlsEnabled,
+                        speed = speed,
+                        onSpeedChange = onSpeedChange,
+                        onSendCommand = onSendCommand,
+                        gamepadJoystickPosition = gamepadJoystickPosition,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(16.dp)
+                    )
+                } else {
+                    PortraitLayout(
+                        controlMode = controlMode,
+                        onModeSelected = { controlMode = it },
+                        controlsEnabled = controlsEnabled,
+                        speed = speed,
+                        onSpeedChange = onSpeedChange,
+                        onSendCommand = onSendCommand,
+                        gamepadJoystickPosition = gamepadJoystickPosition,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(16.dp)
+                    )
+                }
             }
         }
+    }
+
+    // Show captured image dialog
+    capturedImage?.let { capture ->
+        CaptureImageDialog(
+            captureResponse = capture,
+            onDismiss = onDismissCapturedImage
+        )
     }
 }
 
@@ -235,6 +310,54 @@ private fun LandscapeLayout(
                 selectedMode = controlMode,
                 onModeSelected = onModeSelected
             )
+        }
+    }
+}
+
+@Composable
+private fun StreamingLayout(
+    streamingState: StreamingState,
+    currentFrame: Bitmap?,
+    controlMode: ControlMode,
+    controlsEnabled: Boolean,
+    controlsVisible: Boolean,
+    isGamepadConnected: Boolean,
+    speed: Int,
+    onSpeedChange: (Int) -> Unit,
+    onSendCommand: (RobotCommand) -> Unit,
+    gamepadJoystickPosition: Pair<Float, Float>,
+    connectionState: ConnectionState,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        VideoStreamView(
+            streamingState = streamingState,
+            currentFrame = currentFrame,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        OverlayControls(
+            visible = controlsVisible,
+            isGamepadConnected = isGamepadConnected,
+            speed = speed,
+            onSpeedChange = onSpeedChange,
+            onSendCommand = onSendCommand,
+            enabled = controlsEnabled,
+            gamepadJoystickPosition = gamepadJoystickPosition,
+            controlMode = controlMode,
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+        )
+
+        // Connection status indicator in top-right corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .systemBarsPadding()
+                .padding(16.dp)
+        ) {
+            ConnectionStatusDot(connectionState = connectionState)
         }
     }
 }

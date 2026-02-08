@@ -26,6 +26,9 @@ sealed class RobotCommand {
     @Serializable
     data class Joystick(val x: Float, val y: Float) : RobotCommand()
 
+    @Serializable
+    data class Capture(val width: Int, val height: Int) : RobotCommand()
+
     fun toJson(): String {
         return when (this) {
             is Forward -> """{"command":"forward"}"""
@@ -35,6 +38,7 @@ sealed class RobotCommand {
             is Stop -> """{"command":"stop"}"""
             is Speed -> """{"command":"speed","value":$value}"""
             is Joystick -> """{"command":"joystick","x":${String.format(Locale.ROOT, "%.2f", x)},"y":${String.format(Locale.ROOT, "%.2f", y)}}"""
+            is Capture -> """{"command":"capture","width":$width,"height":$height}"""
         }
     }
 }

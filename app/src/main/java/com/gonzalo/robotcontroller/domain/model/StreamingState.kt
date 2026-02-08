@@ -1,0 +1,8 @@
+package com.gonzalo.robotcontroller.domain.model
+
+sealed class StreamingState {
+    data object Idle : StreamingState()
+    data object Connecting : StreamingState()
+    data object Streaming : StreamingState()
+    data class Error(val message: String) : StreamingState()
+}

@@ -2,10 +2,14 @@ package com.gonzalo.robotcontroller.data.repository
 
 import com.gonzalo.robotcontroller.data.websocket.WebSocketClient
 import com.gonzalo.robotcontroller.data.websocket.WebSocketEvent
+import com.gonzalo.robotcontroller.domain.model.CaptureResponse
 import com.gonzalo.robotcontroller.domain.model.ConnectionState
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
 import com.gonzalo.robotcontroller.domain.model.RobotSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Job
@@ -22,6 +26,11 @@ class RobotRepository(
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
+
+    private val _captureResponse = Channel<CaptureResponse>(Channel.BUFFERED)
+    val captureResponse = _captureResponse.receiveAsFlow()
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     private var connectionJob: Job? = null
     private var reconnectAttempts = 0
@@ -72,6 +81,7 @@ class RobotRepository(
                 attemptReconnect(url)
             }
             is WebSocketEvent.MessageReceived -> {
+                parseMessage(event.message)
             }
         }
     }
@@ -89,6 +99,17 @@ class RobotRepository(
 
         if (_connectionState.value !is ConnectionState.Connected) {
             connect(url)
+        }
+    }
+
+    private fun parseMessage(message: String) {
+        try {
+            val response = json.decodeFromString<CaptureResponse>(message)
+            if (response.command == "capture" && response.status == "ok") {
+                _captureResponse.trySend(response)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

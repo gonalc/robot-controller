@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -20,31 +19,19 @@ class SettingsDataStore(private val context: Context) {
         val SERVER_URL = stringPreferencesKey("server_url")
         val RECONNECT_ENABLED = booleanPreferencesKey("reconnect_enabled")
         val MAX_RECONNECT_ATTEMPTS = intPreferencesKey("max_reconnect_attempts")
+        val STREAMING_ENABLED = booleanPreferencesKey("streaming_enabled")
+        val STREAM_PORT = intPreferencesKey("stream_port")
+        val STREAM_PATH = stringPreferencesKey("stream_path")
     }
 
     val settings: Flow<RobotSettings> = context.dataStore.data.map { preferences ->
         RobotSettings(
             serverUrl = preferences[Keys.SERVER_URL] ?: "ws://10.59.196.87:8765",
-            reconnectEnabled = preferences[Keys.RECONNECT_ENABLED] ?: true,
-            maxReconnectAttempts = preferences[Keys.MAX_RECONNECT_ATTEMPTS] ?: 5
+            reconnectEnabled = preferences[Keys.RECONNECT_ENABLED] == true,
+            maxReconnectAttempts = preferences[Keys.MAX_RECONNECT_ATTEMPTS] ?: 5,
+            streamingEnabled = preferences[Keys.STREAMING_ENABLED] == true,
+            streamPort = preferences[Keys.STREAM_PORT] ?: 8080,
+            streamPath = preferences[Keys.STREAM_PATH] ?: "/stream"
         )
-    }
-
-    suspend fun updateServerUrl(url: String) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.SERVER_URL] = url
-        }
-    }
-
-    suspend fun updateReconnectEnabled(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.RECONNECT_ENABLED] = enabled
-        }
-    }
-
-    suspend fun updateMaxReconnectAttempts(attempts: Int) {
-        context.dataStore.edit { preferences ->
-            preferences[Keys.MAX_RECONNECT_ATTEMPTS] = attempts
-        }
     }
 }

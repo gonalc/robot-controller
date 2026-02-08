@@ -1,5 +1,6 @@
 package com.gonzalo.robotcontroller
 
+import android.hardware.input.InputManager
 import android.os.Bundle
 import android.util.Log
 import android.view.InputDevice
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import com.gonzalo.robotcontroller.data.preferences.SettingsDataStore
 import com.gonzalo.robotcontroller.data.repository.RobotRepository
+import com.gonzalo.robotcontroller.data.repository.StreamingRepository
 import com.gonzalo.robotcontroller.data.sound.SoundManager
 import com.gonzalo.robotcontroller.data.websocket.WebSocketClient
 import com.gonzalo.robotcontroller.domain.model.RobotCommand
@@ -27,7 +29,7 @@ import com.gonzalo.robotcontroller.presentation.RobotControlViewModel
 import com.gonzalo.robotcontroller.presentation.RobotControlViewModelFactory
 import com.gonzalo.robotcontroller.ui.theme.RobotControllerTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), InputManager.InputDeviceListener {
 
     private var lastHatX = 0f
     private var lastHatY = 0f
@@ -37,17 +39,25 @@ class MainActivity : ComponentActivity() {
     private var ltSpeedJob: Job? = null
     private val speedAdjustIntervalMs = 150L
 
+    private lateinit var inputManager: InputManager
+
     private val viewModel: RobotControlViewModel by viewModels {
         val webSocketClient = WebSocketClient()
         val repository = RobotRepository(webSocketClient)
         val settingsDataStore = SettingsDataStore(applicationContext)
         val soundManager = SoundManager(applicationContext)
-        RobotControlViewModelFactory(repository, settingsDataStore, soundManager)
+        val streamingRepository = StreamingRepository()
+        RobotControlViewModelFactory(repository, settingsDataStore, soundManager, streamingRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        inputManager = getSystemService(INPUT_SERVICE) as InputManager
+        inputManager.registerInputDeviceListener(this, null)
+        checkForGamepads()
+
         setContent {
             RobotControllerTheme {
                 val connectionState by viewModel.connectionState.collectAsState()
@@ -55,6 +65,12 @@ class MainActivity : ComponentActivity() {
                 val testMode by viewModel.testMode.collectAsState()
                 val gamepadJoystickPosition by viewModel.gamepadJoystickPosition.collectAsState()
                 val speed by viewModel.speed.collectAsState()
+                val capturedImage by viewModel.capturedImage.collectAsState()
+                val isCapturing by viewModel.isCapturing.collectAsState()
+                val streamingState by viewModel.streamingState.collectAsState()
+                val currentFrame by viewModel.currentFrame.collectAsState()
+                val isGamepadConnected by viewModel.isGamepadConnected.collectAsState()
+                val controlsVisible by viewModel.controlsVisible.collectAsState()
 
                 RobotControlScreen(
                     connectionState = connectionState,
@@ -62,20 +78,64 @@ class MainActivity : ComponentActivity() {
                     testMode = testMode,
                     gamepadJoystickPosition = gamepadJoystickPosition,
                     speed = speed,
+                    capturedImage = capturedImage,
+                    isCapturing = isCapturing,
+                    streamingState = streamingState,
+                    currentFrame = currentFrame,
+                    isGamepadConnected = isGamepadConnected,
+                    controlsVisible = controlsVisible,
+                    streamingEnabled = settings.streamingEnabled,
                     onConnect = { viewModel.connect() },
                     onDisconnect = { viewModel.disconnect() },
                     onSendCommand = { command -> viewModel.sendCommand(command) },
                     onSpeedChange = { viewModel.setSpeed(it) },
                     onToggleTestMode = { viewModel.toggleTestMode() },
+                    onCapture = { width, height -> viewModel.captureImage(width, height) },
+                    onDismissCapturedImage = { viewModel.dismissCapturedImage() },
                     modifier = Modifier.fillMaxSize()
                 )
             }
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        inputManager.unregisterInputDeviceListener(this)
+    }
+
+    private fun checkForGamepads() {
+        val deviceIds = inputManager.inputDeviceIds
+        val hasGamepad = deviceIds.any { id ->
+            val device = inputManager.getInputDevice(id)
+            device?.sources?.let { sources ->
+                (sources and InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
+                (sources and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
+            } ?: false
+        }
+        viewModel.updateGamepadConnected(hasGamepad)
+    }
+
+    override fun onInputDeviceAdded(deviceId: Int) {
+        checkForGamepads()
+    }
+
+    override fun onInputDeviceRemoved(deviceId: Int) {
+        checkForGamepads()
+    }
+
+    override fun onInputDeviceChanged(deviceId: Int) {
+        checkForGamepads()
+    }
+
     // --- Bluetooth gamepad: D-pad buttons ---
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Handle L1 button to toggle controls visibility
+        if (keyCode == KeyEvent.KEYCODE_BUTTON_L1 && event?.repeatCount == 0) {
+            viewModel.toggleControlsVisibility()
+            return true
+        }
+
         val command = when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> RobotCommand.Forward
             KeyEvent.KEYCODE_DPAD_DOWN -> RobotCommand.Backward
